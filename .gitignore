@@ -4,9 +4,14 @@ node_modules/
 
 # Environment variables (contains sensitive API keys)
 .env
+.env.local
+.env.production
 
 # Netlify
 .netlify/
+
+# Config files with exposed keys (legacy)
+config.js
 
 # keep only the compiled CSS you serve
 dist/*
