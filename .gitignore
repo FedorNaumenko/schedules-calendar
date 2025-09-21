@@ -1,0 +1,7 @@
+node_modules/
+.vscode/
+.DS_Store
+
+# keep only the compiled CSS you serve
+dist/*
+!dist/styles.css

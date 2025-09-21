@@ -1,0 +1,20 @@
+{
+  "name": "calendar_scheduler",
+  "version": "1.0.0",
+  "description": "Interactive cron calendar that reads jobs from Google Sheets and shows them in Israel time",
+  "main": "index.js",
+  "scripts": {
+    "build-css": "postcss styles.css -o output.css",
+    "watch-css": "postcss styles.css -o output.css --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "postcss-cli": "^11.0.1",
+    "tailwindcss": "^3.4.0"
+  }
+}
