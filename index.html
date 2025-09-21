@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Job Scheduler Calendar</title>
+  <title>Schedules Calendar</title>
 
-  <!-- Tailwind (ok for dev; build for prod) -->
+  <!-- Tailwind (dev only; build CSS for production) -->
   <script src="https://cdn.tailwindcss.com"></script>
 
   <!-- Luxon for timezone-aware cron interpretation -->
@@ -19,19 +19,31 @@
 <body class="p-4 md:p-8 flex flex-col items-center">
 
   <div id="app" class="w-full max-w-5xl bg-white shadow-xl rounded-2xl overflow-hidden">
-    <!-- Header -->
-    <header class="p-6 bg-blue-600 text-white rounded-t-2xl flex justify-between items-center">
-      <button id="prev-month" class="p-2 rounded-full hover:bg-blue-700 transition-colors duration-200">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-        </svg>
-      </button>
-      <h1 id="month-year" class="text-2xl font-semibold"></h1>
-      <button id="next-month" class="p-2 rounded-full hover:bg-blue-700 transition-colors duration-200">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-        </svg>
-      </button>
+    <!-- Header with month + scheduler dropdown -->
+    <header class="p-6 bg-blue-600 text-white rounded-t-2xl">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <button id="prev-month" class="p-2 rounded-full hover:bg-blue-700 transition-colors duration-200">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+          </button>
+          <h1 id="month-year" class="text-2xl font-semibold"></h1>
+          <button id="next-month" class="p-2 rounded-full hover:bg-blue-700 transition-colors duration-200">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Scheduler dropdown -->
+        <div class="flex items-center gap-2">
+          <label for="calendar-select" class="text-sm opacity-90">Scheduler:</label>
+          <select id="calendar-select" class="text-blue-900 bg-white rounded-md px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-white/50">
+            <!-- options populated by JS -->
+          </select>
+        </div>
+      </div>
     </header>
 
     <!-- Weekdays -->
@@ -43,7 +55,7 @@
     <div id="calendar-grid" class="grid grid-cols-7 gap-1 p-4 min-h-[300px]"></div>
   </div>
 
-  <!-- Job Details Modal (wider now) -->
+  <!-- Job Details Modal (wider) -->
   <div id="job-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-gray-900 bg-opacity-75 p-4">
     <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-5xl max-h-[85vh] flex flex-col">
       <div class="flex justify-between items-center pb-4 border-b border-gray-200">
@@ -61,29 +73,39 @@
 
   <script>
   (async function () {
-    // ---- CONFIG ----
-    const SHEET_ID = "1gusA2pYc4q7MjJ-n2Yso5MoyjGq-tYPMzXoLeivuPr4";
-    const API_KEY  = "AIzaSyBz3U6ehuu1FPlgYHqcpwF5OyyyHVZrzwE";
-    const RANGE    = "'feed processor schedulers - us'!A1:G"; // header row included
+    // ============ CONFIG ============
+    const API_KEY = "AIzaSyBz3U6ehuu1FPlgYHqcpwF5OyyyHVZrzwE";
 
-    // ---------- Fetch + robust mapping ----------
-    async function fetchSheetValues() {
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(RANGE)}?key=${API_KEY}`;
-      const res = await fetch(url);
-      if (!res.ok) {
-        const t = await res.text().catch(()=> "");
-        throw new Error(`Sheets API error ${res.status}: ${t}`);
+    // Explicit tabs ensure we read the right worksheet
+    const CALENDARS = {
+      "Feed Processor Schedulers - US": {
+        sheetId: "1gusA2pYc4q7MjJ-n2Yso5MoyjGq-tYPMzXoLeivuPr4",
+        tab: "feed processor schedulers - us"
+      },
+      "ETL_US": {
+        sheetId: "1hWaU-8J-OM8cwtsM774arn8xSNDcH1pKXb4p7EnOj-E"
+        // tab: "Sheet1" // set if not first
+      },
+      "Delivery Scheduler Schedulers - US": {
+        sheetId: "1nGjY4pf08ojuXqSN7D2p1S1HL1o6uKeAMRl1ySOODxg",
+        tab: "delivery scheduler schedulers - us"
       }
-      return (await res.json()).values || [];
-    }
+    };
 
+    // Cache for first-tab titles to reduce extra meta calls
+    const metaCache = new Map(); // sheetId -> firstTabTitle
+
+    // ============ STATE ============
+    let loadedJobs = [];
+    let currentDate = new Date();
+    let currentCalendarKey = Object.keys(CALENDARS)[0];
+
+    // ============ HELPERS ============
     function toObjects(values) {
-      if (!values.length) return [];
+      if (!values?.length) return [];
       const [headers, ...rows] = values;
       return rows.map(r => Object.fromEntries(headers.map((h,i)=>[h, (r[i] ?? '').trim()])));
     }
-
-    // case-insensitive field getter (+ tolerate variant names)
     function getField(row, ...candidates) {
       const lut = new Map(Object.keys(row).map(k => [k.toLowerCase().trim(), k]));
       for (const c of candidates) {
@@ -92,80 +114,147 @@
       }
       return '';
     }
-
-    // derive name from args.processor (JSON or Ruby-hash-like)
     function deriveNameFromArgs(argsStr) {
       if (!argsStr) return '';
-      // Try JSON directly
-      try {
-        const o = JSON.parse(argsStr);
-        if (o && o.processor) return String(o.processor);
-      } catch {}
-      // Coerce Ruby hash-ish -> JSON
+      try { const o = JSON.parse(argsStr); if (o?.processor) return String(o.processor); } catch {}
       try {
         const coerced = argsStr
-          .replace(/:(\w+)\s*=>/g, '"$1":') // :key => value
-          .replace(/(\w+)\s*=>/g, '"$1":')  // key => value
+          .replace(/:(\w+)\s*=>/g, '"$1":')
+          .replace(/(\w+)\s*=>/g, '"$1":')
           .replace(/=>/g, ':')
           .replace(/'/g, '"');
         const o2 = JSON.parse(coerced);
-        if (o2 && o2.processor) return String(o2.processor);
+        if (o2?.processor) return String(o2.processor);
       } catch {}
-      // Regex fallback
       const m = argsStr.match(/processor["']?\s*(?::|=>)\s*["']([^"']+)["']|["']processor["']\s*:\s*["']([^"']+)["']/i);
       return m ? (m[1] || m[2] || '') : '';
     }
-
-    function buildLoadedJobs(values) {
-      const rows = toObjects(values);
-      return rows.map(r => {
-        const cron  = getField(r, 'cron');
-        const tz    = getField(r, 'timezone','tz') || 'Asia/Jerusalem';
-        const klass = getField(r, 'class','job class','type');
-        const args  = getField(r, 'args','parameters');
-        const acct  = getField(r, 'account','account name','client');
-        const nameCell = getField(r, 'job name','Job name','Job Name','name');
-        const desc  = getField(r, 'job description','description');
-
-        const derived = nameCell || deriveNameFromArgs(args) || '(unnamed)';
-        return {
-          cron: cron || '',
-          timezone: tz,
-          class: klass || '',
-          args: args || '',
-          account: acct || '',
-          'job name': derived,
-          'job description': desc || ''
-        };
-      });
+    function normalizeTZ(tz) {
+      if (!tz) return 'Asia/Jerusalem';
+      const map = { Israel: 'Asia/Jerusalem', Jerusalem: 'Asia/Jerusalem' };
+      return map[tz] || tz;
+    }
+    function parseRubyishJson(str) {
+      if (!str) return {};
+      try { return JSON.parse(str.replace(/=>/g, ':')); }
+      catch {
+        try {
+          const coerced = str
+            .replace(/:(\w+)\s*=>/g, '"$1":')
+            .replace(/(\w+)\s*=>/g, '"$1":')
+            .replace(/=>/g, ':')
+            .replace(/'/g, '"');
+          return JSON.parse(coerced);
+        } catch { return {}; }
+      }
+    }
+    function parseArgs(str) {
+      if (!str) return {};
+      try { return JSON.parse(str); } catch {}
+      return parseRubyishJson(str);
     }
 
-    const loadedJobs = buildLoadedJobs(await fetchSheetValues());
+    // ---------- Build rows for ALL schemas (Feed / Delivery / ETL) ----------
+    function buildLoadedJobs(values) {
+      const rows = toObjects(values);
+      const jobs = [];
 
-    // ---------- UI constants ----------
-    const calendarGrid = document.getElementById('calendar-grid');
-    const monthYearHeader = document.getElementById('month-year');
-    const prevMonthBtn = document.getElementById('prev-month');
-    const nextMonthBtn = document.getElementById('next-month');
-    const jobModal = document.getElementById('job-modal');
-    const modalTitle = document.getElementById('modal-title');
-    const jobList = document.getElementById('job-list');
-    const noJobsMessage = document.getElementById('no-jobs-message');
+      for (const r of rows) {
+        // cron & timezone (Feed/Delivery columns; ETL may use "Schedule" or "Scheduled" JSON-ish)
+        let cron = getField(r, 'cron','Cron','CRON','Schedule');
+        let tz   = getField(r, 'timezone','tz','Timezone','TZ');
 
-    let currentDate = new Date();
+        if (!cron || !tz) {
+          const schedObj = parseRubyishJson(getField(r, 'Scheduled'));
+          cron = cron || schedObj.cron || '';
+          tz   = tz   || schedObj.timezone || '';
+        }
+        if (!cron) continue; // skip rows without cron
+        tz = normalizeTZ(tz);
 
-    const colorMap = {
-      'spark': 'bg-blue-500',
-      'feed': 'bg-purple-500',
-      'monitors': 'bg-red-500',
-      'competitors': 'bg-green-500',
-      'Client A': 'bg-blue-500',
-      'Client B': 'bg-purple-500',
-      'Internal': 'bg-red-500',
-      'Client C': 'bg-yellow-500',
-    };
+        // args (Delivery uses args.klass/client_key/channel)
+        const rawArgs = getField(r, 'args','Args','parameters');
+        const argsObj = parseArgs(rawArgs);
 
-    // ---------- Cron parsing (TZ-aware using Luxon) ----------
+        // class (prefer explicit, else from args; ETL fallback 'etl')
+        const klassFromCol  = getField(r, 'class','job class','type');
+        const klassFromArgs = argsObj.klass || argsObj.class || argsObj.processor;
+        const hasEtlHints   = !!(getField(r, 'File Name') || getField(r, 'Scheduled') || getField(r, 'Schedule'));
+        const klass         = (klassFromCol || klassFromArgs || (hasEtlHints ? 'etl' : '')).toString();
+
+        // account / client
+        const accountFromCol  = getField(r, 'account','account name','client','Client_key','client_key');
+        const accountFromArgs = argsObj.client_key || argsObj.account;
+        const account         = (accountFromCol || accountFromArgs || '').toString();
+
+        // name: explicit, else args.processor/klass, else account
+        const nameExplicit = getField(r, 'job name','Job name','Job Name','name','File Name');
+        const nameDerived  = nameExplicit || argsObj.processor || argsObj.klass || account || '(unnamed)';
+
+        // description (optional)
+        const desc = getField(r, 'job description','description');
+
+        // If ETL-like row with no raw args, synthesize a helpful args object
+        let finalArgs = rawArgs;
+        if (!finalArgs) {
+          const channel       = getField(r, 'Channel','channel') || argsObj.channel;
+          const sendToPricing = getField(r, 'Send To Pricing','send to pricing');
+          const competitors   = getField(r, 'Competitors');
+          const fileName      = getField(r, 'File Name','filename');
+          const link          = getField(r, 'link','Link','URL','url');
+
+          const obj = { ...argsObj };
+          if (account) obj.client_key = obj.client_key || account;
+          if (channel) obj.channel = obj.channel || channel;
+          if (sendToPricing) obj.send_to_pricing = obj.send_to_pricing || sendToPricing;
+          if (competitors) obj.competitors = obj.competitors || competitors;
+          if (fileName) obj.file_name = obj.file_name || fileName;
+          if (link) obj.link = obj.link || link;
+
+          finalArgs = Object.keys(obj).length ? JSON.stringify(obj) : '';
+        }
+
+        jobs.push({
+          cron,
+          timezone: tz,
+          class: klass,
+          args: finalArgs || '',
+          account,
+          'job name': nameDerived,
+          'job description': desc || ''
+        });
+      }
+
+      return jobs;
+    }
+
+    async function getFirstTabTitle(sheetId) {
+      if (metaCache.has(sheetId)) return metaCache.get(sheetId);
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?key=${API_KEY}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Sheets meta error ${res.status}`);
+      const info = await res.json();
+      const title = info.sheets?.[0]?.properties?.title;
+      metaCache.set(sheetId, title);
+      return title;
+    }
+
+    async function fetchSheetValuesFor(calendarKey) {
+      const { sheetId, tab } = CALENDARS[calendarKey];
+      let tabName = tab;
+      if (!tabName) tabName = await getFirstTabTitle(sheetId);
+      // Read plenty of columns (Delivery/ETL can spill past G)
+      const range = `'${tabName}'!A1:ZZ`;
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        const t = await res.text().catch(()=> "");
+        throw new Error(`Sheets API error ${res.status}: ${t}`);
+      }
+      return (await res.json()).values || [];
+    }
+
+    // Cron helpers (TZ-aware using Luxon)
     function parseRange(val, max) {
       const values = new Set();
       (val || '*').toString().split(',').forEach(part => {
@@ -184,7 +273,6 @@
       });
       return values;
     }
-
     function getNextScheduledDatesTZ(expression, start, end, cronZone) {
       const { DateTime } = luxon;
       const dates = [];
@@ -196,7 +284,6 @@
       const hours = parseRange(hour, 23);
       const dom = parseRange(dayOfMonth, 31);
 
-      // months 1..12
       const months = new Set();
       month.split(',').forEach(p=>{
         if (p==='*') { for (let m=1;m<=12;m++) months.add(m); }
@@ -242,83 +329,27 @@
       return jobsPerDay;
     }
 
-    // ---------- Rendering ----------
-    function showJobsForDay(dateString) {
-      const [year, month, day] = dateString.split('-').map(Number);
-      const selectedDate = new Date(year, month, day);
-      const jobsPerDay = getJobsForMonth(year, month);
-      const jobsOnThisDay = jobsPerDay[`${year}-${month}-${day}`] || [];
+    // Colors for dots
+    const colorMap = {
+      'spark': 'bg-blue-500',
+      'feed': 'bg-purple-500',
+      'monitors': 'bg-red-500',
+      'competitors': 'bg-green-500',
+      'Client A': 'bg-blue-500',
+      'Client B': 'bg-purple-500',
+      'Internal': 'bg-red-500',
+      'Client C': 'bg-yellow-500',
+      // Fallback handled below
+    };
 
-      const modalDateString = selectedDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-      modalTitle.textContent = `Jobs for ${modalDateString}`;
-      jobList.innerHTML = '';
-
-      if (jobsOnThisDay.length === 0) {
-        noJobsMessage.classList.remove('hidden');
-        return;
-      }
-      noJobsMessage.classList.add('hidden');
-
-      // sort by time
-      jobsOnThisDay.sort((a,b) => a.scheduledTime - b.scheduledTime);
-
-      // group by minute in Israel time
-      const groups = new Map();
-      for (const j of jobsOnThisDay) {
-        const key = luxon.DateTime.fromJSDate(j.scheduledTime, { zone: 'Asia/Jerusalem' }).toFormat('HH:mm');
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key).push(j);
-      }
-
-      // render groups
-      for (const [hhmm, arr] of groups) {
-        const header = document.createElement('div');
-        header.className = 'mt-2 text-xs uppercase tracking-wide text-gray-500';
-        header.textContent = `${hhmm} — ${arr.length} job${arr.length>1?'s':''}`;
-        jobList.appendChild(header);
-
-        for (const job of arr) {
-          const scheduledTimeIL = luxon.DateTime.fromJSDate(job.scheduledTime, { zone: 'Asia/Jerusalem' }).toFormat('HH:mm');
-          const colorClass = colorMap[job.class] || colorMap[job.account] || 'bg-gray-500';
-
-          const card = document.createElement('div');
-          card.className = 'grid grid-cols-[6rem_1fr] gap-4 p-4 bg-gray-50 rounded-xl shadow-sm border border-gray-200';
-
-          card.innerHTML = `
-            <div class="flex flex-col items-start">
-                <div class="text-sm font-bold text-gray-900">${scheduledTimeIL}</div>
-                <div class="text-[11px] text-gray-500">Israel Time</div>
-                <div class="mt-3 w-2 h-10 rounded-full ${colorClass}"></div>
-            </div>
-
-            <div class="min-w-0">
-                <h4 class="text-lg font-semibold text-gray-800 break-words">${job['job name'] || '(unnamed)'}</h4>
-                <div class="mt-1 text-sm text-gray-700 space-y-1">
-                <div><span class="font-medium">Class:</span> ${job.class || '-'}</div>
-                <div><span class="font-medium">Account:</span> ${job.account || '-'}</div>
-                <div><span class="font-medium">Cron:</span> <code class="text-xs bg-white px-1 py-0.5 rounded border">${job.cron || '-'}</code></div>
-                <div><span class="font-medium">Timezone:</span> ${job.timezone || 'Asia/Jerusalem'}</div>
-                <div class="flex items-start gap-2">
-                    <span class="font-medium mt-0.5">Args:</span>
-                    <pre class="text-xs bg-white px-2 py-1 rounded border overflow-x-auto whitespace-pre-wrap break-words max-h-32">${job.args || '-'}</pre>
-                </div>
-                <div class="text-gray-600 break-words">${job['job description'] || ''}</div>
-                </div>
-            </div>
-          `;
-          jobList.appendChild(card);
-        }
-      }
-
-      jobModal.classList.remove('hidden');
-      jobModal.classList.add('flex');
-    }
-
+    // ============ RENDERING ============
     function renderCalendar(date) {
+      const calendarGrid = document.getElementById('calendar-grid');
       calendarGrid.innerHTML = '';
       const year = date.getFullYear();
       const month = date.getMonth();
-      monthYearHeader.textContent = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      document.getElementById('month-year').textContent =
+        `${date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
 
       const firstDayOfMonth = new Date(year, month, 1).getDay();
       const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -361,12 +392,107 @@
       }
     }
 
-    // Listeners + initial render
+    function showJobsForDay(dateString) {
+      const [year, month, day] = dateString.split('-').map(Number);
+      const selectedDate = new Date(year, month, day);
+      const jobsPerDay = getJobsForMonth(year, month);
+      const jobsOnThisDay = jobsPerDay[`${year}-${month}-${day}`] || [];
+
+      const modalDateString = selectedDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      document.getElementById('modal-title').textContent =
+        `Jobs for ${modalDateString} — ${currentCalendarKey}`;
+      const jobList = document.getElementById('job-list');
+      const noJobsMessage = document.getElementById('no-jobs-message');
+      jobList.innerHTML = '';
+
+      if (jobsOnThisDay.length === 0) {
+        noJobsMessage.classList.remove('hidden');
+        document.getElementById('job-modal').classList.remove('hidden');
+        document.getElementById('job-modal').classList.add('flex');
+        return;
+      }
+      noJobsMessage.classList.add('hidden');
+
+      // sort & group by minute (Israel time)
+      jobsOnThisDay.sort((a,b) => a.scheduledTime - b.scheduledTime);
+      const groups = new Map();
+      for (const j of jobsOnThisDay) {
+        const key = luxon.DateTime.fromJSDate(j.scheduledTime, { zone: 'Asia/Jerusalem' }).toFormat('HH:mm');
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(j);
+      }
+
+      for (const [hhmm, arr] of groups) {
+        const header = document.createElement('div');
+        header.className = 'mt-2 text-xs uppercase tracking-wide text-gray-500';
+        header.textContent = `${hhmm} — ${arr.length} job${arr.length>1?'s':''}`;
+        jobList.appendChild(header);
+
+        for (const job of arr) {
+          const scheduledTimeIL = luxon.DateTime.fromJSDate(job.scheduledTime, { zone: 'Asia/Jerusalem' }).toFormat('HH:mm');
+          const colorClass = colorMap[job.class] || colorMap[job.account] || 'bg-gray-500';
+
+          const card = document.createElement('div');
+          card.className = 'grid grid-cols-[6rem_1fr] gap-4 p-4 bg-gray-50 rounded-xl shadow-sm border border-gray-200';
+
+          card.innerHTML = `
+            <div class="flex flex-col items-start">
+              <div class="text-sm font-bold text-gray-900">${scheduledTimeIL}</div>
+              <div class="text-[11px] text-gray-500">Israel Time</div>
+              <div class="mt-3 w-2 h-10 rounded-full ${colorClass}"></div>
+            </div>
+
+            <div class="min-w-0">
+              <h4 class="text-lg font-semibold text-gray-800 break-words">${job['job name'] || '(unnamed)'}</h4>
+              <div class="mt-1 text-sm text-gray-700 space-y-1">
+                <div><span class="font-medium">Class:</span> ${job.class || '-'}</div>
+                <div><span class="font-medium">Account:</span> ${job.account || '-'}</div>
+                <div><span class="font-medium">Cron:</span> <code class="text-xs bg-white px-1 py-0.5 rounded border">${job.cron || '-'}</code></div>
+                <div><span class="font-medium">Timezone:</span> ${job.timezone || 'Asia/Jerusalem'}</div>
+                <div class="flex items-start gap-2">
+                  <span class="font-medium mt-0.5">Args:</span>
+                  <pre class="text-xs bg-white px-2 py-1 rounded border overflow-x-auto whitespace-pre-wrap break-words max-h-32">${job.args || '-'}</pre>
+                </div>
+                <div class="text-gray-600 break-words">${job['job description'] || ''}</div>
+              </div>
+            </div>
+          `;
+          jobList.appendChild(card);
+        }
+      }
+
+      const modal = document.getElementById('job-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    // ============ CONTROLLER ============
+    async function loadCalendarFor(calendarKey) {
+      currentCalendarKey = calendarKey;
+      document.getElementById('calendar-select').value = calendarKey;
+
+      const values = await fetchSheetValuesFor(calendarKey);
+      loadedJobs = buildLoadedJobs(values);
+
+      renderCalendar(currentDate);
+    }
+
+    // Populate dropdown
+    const selectEl = document.getElementById('calendar-select');
+    selectEl.innerHTML = Object.keys(CALENDARS)
+      .map(k => `<option value="${k}">${k}</option>`)
+      .join('');
+    selectEl.addEventListener('change', async (e) => {
+      await loadCalendarFor(e.target.value);
+    });
+
+    // Month controls
     document.getElementById('prev-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth()-1); renderCalendar(currentDate); });
     document.getElementById('next-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth()+1); renderCalendar(currentDate); });
-    document.getElementById('close-modal').addEventListener('click', () => jobModal.classList.add('hidden'));
+    document.getElementById('close-modal').addEventListener('click', () => document.getElementById('job-modal').classList.add('hidden'));
 
-    renderCalendar(currentDate);
+    // Initial load
+    await loadCalendarFor(currentCalendarKey);
   })();
   </script>
 </body>
