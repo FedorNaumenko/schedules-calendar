@@ -6,6 +6,8 @@
   "scripts": {
     "build-css": "postcss styles.css -o output.css",
     "watch-css": "postcss styles.css -o output.css --watch",
+    "build": "npm run build-css",
+    "deploy": "npm run build && git add . && git commit -m \"Deploy: Update build files\" && git push origin main",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
