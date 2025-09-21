@@ -2,6 +2,12 @@ node_modules/
 .vscode/
 .DS_Store
 
+# Environment variables (contains sensitive API keys)
+.env
+
+# Netlify
+.netlify/
+
 # keep only the compiled CSS you serve
 dist/*
 !dist/styles.css

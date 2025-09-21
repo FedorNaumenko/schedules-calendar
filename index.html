@@ -75,23 +75,24 @@
   <script>
   (async function () {
     // ============ CONFIG ============
-    const API_KEY = "AIzaSyBz3U6ehuu1FPlgYHqcpwF5OyyyHVZrzwE";
-
-    // Explicit tabs ensure we read the right worksheet
-    const CALENDARS = {
-      "Feed Processor Schedulers - US": {
-        sheetId: "1gusA2pYc4q7MjJ-n2Yso5MoyjGq-tYPMzXoLeivuPr4",
-        tab: "feed processor schedulers - us"
-      },
-      "ETL_US": {
-        sheetId: "1hWaU-8J-OM8cwtsM774arn8xSNDcH1pKXb4p7EnOj-E"
-        // tab: "Sheet1" // set if not first
-      },
-      "Delivery Scheduler Schedulers - US": {
-        sheetId: "1nGjY4pf08ojuXqSN7D2p1S1HL1o6uKeAMRl1ySOODxg",
-        tab: "delivery scheduler schedulers - us"
+    // API key is now secure on the server side
+    
+    // Load calendars from secure API
+    let CALENDARS = {};
+    
+    // Load calendar configuration from secure endpoint
+    async function loadCalendars() {
+      try {
+        const response = await fetch('/api/calendars');
+        if (!response.ok) throw new Error('Failed to load calendars');
+        const data = await response.json();
+        CALENDARS = data.calendars;
+      } catch (error) {
+        console.error('Error loading calendars:', error);
+        // Fallback to empty config
+        CALENDARS = {};
       }
-    };
+    }
 
     // Cache for first-tab titles to reduce extra meta calls
     const metaCache = new Map(); // sheetId -> firstTabTitle
@@ -99,7 +100,7 @@
     // ============ STATE ============
     let loadedJobs = [];
     let currentDate = new Date();
-    let currentCalendarKey = Object.keys(CALENDARS)[0];
+    let currentCalendarKey = null; // Will be set after calendars load
 
     // ============ HELPERS ============
     function toObjects(values) {
@@ -231,11 +232,11 @@
 
     async function getFirstTabTitle(sheetId) {
       if (metaCache.has(sheetId)) return metaCache.get(sheetId);
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?key=${API_KEY}`;
+      const url = `/api/sheet-meta?sheetId=${sheetId}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Sheets meta error ${res.status}`);
       const info = await res.json();
-      const title = info.sheets?.[0]?.properties?.title;
+      const title = info.title;
       metaCache.set(sheetId, title);
       return title;
     }
@@ -246,7 +247,7 @@
       if (!tabName) tabName = await getFirstTabTitle(sheetId);
       // Read plenty of columns (Delivery/ETL can spill past G)
       const range = `'${tabName}'!A1:ZZ`;
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
+      const url = `/api/sheet-values?sheetId=${sheetId}&range=${encodeURIComponent(range)}`;
       const res = await fetch(url);
       if (!res.ok) {
         const t = await res.text().catch(()=> "");
@@ -478,14 +479,23 @@
       renderCalendar(currentDate);
     }
 
-    // Populate dropdown
-    const selectEl = document.getElementById('calendar-select');
-    selectEl.innerHTML = Object.keys(CALENDARS)
-      .map(k => `<option value="${k}">${k}</option>`)
-      .join('');
-    selectEl.addEventListener('change', async (e) => {
-      await loadCalendarFor(e.target.value);
-    });
+    // Populate dropdown after calendars are loaded
+    async function populateCalendarDropdown() {
+      const selectEl = document.getElementById('calendar-select');
+      const calendarKeys = Object.keys(CALENDARS);
+      selectEl.innerHTML = calendarKeys
+        .map(k => `<option value="${k}">${k}</option>`)
+        .join('');
+      
+      // Set the first calendar as default if none set
+      if (!currentCalendarKey && calendarKeys.length > 0) {
+        currentCalendarKey = calendarKeys[0];
+      }
+      
+      selectEl.addEventListener('change', async (e) => {
+        await loadCalendarFor(e.target.value);
+      });
+    }
 
     // Month controls
     document.getElementById('prev-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth()-1); renderCalendar(currentDate); });
@@ -493,7 +503,11 @@
     document.getElementById('close-modal').addEventListener('click', () => document.getElementById('job-modal').classList.add('hidden'));
 
     // Initial load
-    await loadCalendarFor(currentCalendarKey);
+    await loadCalendars();
+    await populateCalendarDropdown();
+    if (currentCalendarKey) {
+      await loadCalendarFor(currentCalendarKey);
+    }
   })();
   </script>
 </body>
