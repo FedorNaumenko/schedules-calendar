@@ -1,0 +1,34 @@
+{
+  "outputDirectory": ".",
+  "functions": {
+    "api/*.js": {
+      "runtime": "@vercel/node@1"
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/health",
+      "dest": "/api/health.js"
+    },
+    {
+      "src": "/api/calendars",
+      "dest": "/api/calendars.js"
+    },
+    {
+      "src": "/api/calendars/([^/]+)/config",
+      "dest": "/api/calendar-config.js?calendarName=$1"
+    },
+    {
+      "src": "/api/sheets/([^/]+)/meta",
+      "dest": "/api/sheet-meta.js?sheetId=$1"
+    },
+    {
+      "src": "/api/sheets/([^/]+)/values",
+      "dest": "/api/sheet-values.js?sheetId=$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ]
+}
