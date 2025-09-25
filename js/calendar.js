@@ -316,6 +316,7 @@
         console.log(`Day ${day}: ${jobsOnDay.length} jobs`);
         cell.classList.add('bg-blue-50','text-blue-700','font-bold');
         const uniqueJobColors = new Set(jobsOnDay.map(j => colorMap[j.class] || colorMap[j.account] || 'bg-gray-500'));
+        console.log(`Day ${day} colors:`, Array.from(uniqueJobColors));
         const dots = document.createElement('div');
         dots.className = 'absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1';
         uniqueJobColors.forEach(c => {
@@ -324,6 +325,8 @@
           dots.appendChild(dot);
         });
         cell.appendChild(dots);
+        console.log(`Day ${day} cell classes:`, cell.className);
+        console.log(`Day ${day} dots created:`, dots.children.length);
       }
 
       const today = new Date();
