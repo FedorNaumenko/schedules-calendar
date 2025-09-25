@@ -285,6 +285,7 @@
 
   // ============ RENDERING ============
   function renderCalendar(date) {
+    console.log('Rendering calendar for:', date, 'with', loadedJobs.length, 'jobs');
     const calendarGrid = document.getElementById('calendar-grid');
     calendarGrid.innerHTML = '';
     const year = date.getFullYear();
@@ -296,6 +297,7 @@
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     const jobsPerDay = getJobsForMonth(year, month);
+    console.log('Jobs per day for', month+1, '/', year, ':', Object.keys(jobsPerDay).length, 'days with jobs');
 
     for (let i = 0; i < firstDayOfMonth; i++) {
       const emptyCell = document.createElement('div');
@@ -311,6 +313,7 @@
 
       const jobsOnDay = jobsPerDay[`${year}-${month}-${day}`] || [];
       if (jobsOnDay.length > 0) {
+        console.log(`Day ${day}: ${jobsOnDay.length} jobs`);
         cell.classList.add('bg-blue-50','text-blue-700','font-bold');
         const uniqueJobColors = new Set(jobsOnDay.map(j => colorMap[j.class] || colorMap[j.account] || 'bg-gray-500'));
         const dots = document.createElement('div');
