@@ -13,13 +13,11 @@
   
   // Load calendar configuration from secure endpoint
   async function loadCalendars() {
-    console.log('Loading calendars configuration...');
     try {
       const response = await fetch('/api/calendars');
       if (!response.ok) throw new Error('Failed to load calendars');
       const data = await response.json();
       CALENDARS = data.calendars;
-      console.log('Loaded calendars:', Object.keys(CALENDARS));
     } catch (error) {
       console.error('Error loading calendars:', error);
       // Fallback to empty config
@@ -285,7 +283,6 @@
 
   // ============ RENDERING ============
   function renderCalendar(date) {
-    console.log('Rendering calendar for:', date, 'with', loadedJobs.length, 'jobs');
     const calendarGrid = document.getElementById('calendar-grid');
     calendarGrid.innerHTML = '';
     const year = date.getFullYear();
@@ -297,7 +294,6 @@
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     const jobsPerDay = getJobsForMonth(year, month);
-    console.log('Jobs per day for', month+1, '/', year, ':', Object.keys(jobsPerDay).length, 'days with jobs');
 
     for (let i = 0; i < firstDayOfMonth; i++) {
       const emptyCell = document.createElement('div');
@@ -313,10 +309,8 @@
 
       const jobsOnDay = jobsPerDay[`${year}-${month}-${day}`] || [];
       if (jobsOnDay.length > 0) {
-        console.log(`Day ${day}: ${jobsOnDay.length} jobs`);
         cell.classList.add('bg-blue-50','text-blue-700','font-bold');
         const uniqueJobColors = new Set(jobsOnDay.map(j => colorMap[j.class] || colorMap[j.account] || 'bg-gray-500'));
-        console.log(`Day ${day} colors:`, Array.from(uniqueJobColors));
         const dots = document.createElement('div');
         dots.className = 'absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1';
         uniqueJobColors.forEach(c => {
@@ -325,8 +319,6 @@
           dots.appendChild(dot);
         });
         cell.appendChild(dots);
-        console.log(`Day ${day} cell classes:`, cell.className);
-        console.log(`Day ${day} dots created:`, dots.children.length);
       }
 
       const today = new Date();
@@ -415,14 +407,11 @@
 
   // ============ CONTROLLER ============
   async function loadCalendarFor(calendarKey) {
-    console.log('Loading calendar for:', calendarKey);
     currentCalendarKey = calendarKey;
     document.getElementById('calendar-select').value = calendarKey;
 
     const values = await fetchSheetValuesFor(calendarKey);
-    console.log('Fetched values:', values?.length, 'rows');
     loadedJobs = buildLoadedJobs(values);
-    console.log('Built jobs:', loadedJobs?.length, 'jobs');
 
     renderCalendar(currentDate);
   }
