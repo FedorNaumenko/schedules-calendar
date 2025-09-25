@@ -13,11 +13,13 @@
   
   // Load calendar configuration from secure endpoint
   async function loadCalendars() {
+    console.log('Loading calendars configuration...');
     try {
       const response = await fetch('/api/calendars');
       if (!response.ok) throw new Error('Failed to load calendars');
       const data = await response.json();
       CALENDARS = data.calendars;
+      console.log('Loaded calendars:', Object.keys(CALENDARS));
     } catch (error) {
       console.error('Error loading calendars:', error);
       // Fallback to empty config
@@ -407,11 +409,14 @@
 
   // ============ CONTROLLER ============
   async function loadCalendarFor(calendarKey) {
+    console.log('Loading calendar for:', calendarKey);
     currentCalendarKey = calendarKey;
     document.getElementById('calendar-select').value = calendarKey;
 
     const values = await fetchSheetValuesFor(calendarKey);
+    console.log('Fetched values:', values?.length, 'rows');
     loadedJobs = buildLoadedJobs(values);
+    console.log('Built jobs:', loadedJobs?.length, 'jobs');
 
     renderCalendar(currentDate);
   }
