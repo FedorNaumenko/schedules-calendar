@@ -32,6 +32,7 @@
   let loadedJobs = [];
   let currentDate = new Date();
   let currentCalendarKey = null; // Will be set after calendars load
+  let selectedJobs = new Set(); // Track selected jobs for copying
 
   // ============ HELPERS ============
   function toObjects(values) {
@@ -281,7 +282,90 @@
     // Fallback handled below
   };
 
-  // ============ RENDERING ============
+  // ============ JOB SELECTION & COPY ============
+  function updateCopyButton() {
+    const copyBtn = document.getElementById('copy-jobs-btn');
+    const countSpan = document.getElementById('selected-count');
+    const count = selectedJobs.size;
+    
+    countSpan.textContent = count;
+    
+    if (count > 0) {
+      copyBtn.disabled = false;
+      copyBtn.className = 'px-4 py-2 bg-blue-500 text-white rounded-lg font-medium transition-colors duration-200 hover:bg-blue-600 cursor-pointer';
+    } else {
+      copyBtn.disabled = true;
+      copyBtn.className = 'px-4 py-2 bg-gray-300 text-gray-500 rounded-lg font-medium transition-colors duration-200 cursor-not-allowed';
+    }
+  }
+
+  function toggleJobSelection(jobId, shiftKey = false) {
+    if (shiftKey && selectedJobs.size > 0) {
+      // For shift-click, we could implement range selection, but for now just add to selection
+      selectedJobs.add(jobId);
+    } else if (!shiftKey) {
+      // Normal click - toggle selection
+      if (selectedJobs.has(jobId)) {
+        selectedJobs.delete(jobId);
+      } else {
+        selectedJobs.add(jobId);
+      }
+    }
+    
+    updateJobSelectionDisplay();
+    updateCopyButton();
+  }
+
+  function updateJobSelectionDisplay() {
+    // Update visual state of job cards
+    const allJobCards = document.querySelectorAll('[data-job-id]');
+    allJobCards.forEach(card => {
+      const jobId = card.dataset.jobId;
+      if (selectedJobs.has(jobId)) {
+        card.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
+        card.classList.remove('bg-gray-50');
+      } else {
+        card.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50');
+        card.classList.add('bg-gray-50');
+      }
+    });
+  }
+
+  async function copySelectedJobs() {
+    if (selectedJobs.size === 0) return;
+    
+    // Find the jobs data for selected IDs
+    const selectedJobsData = [];
+    const allJobCards = document.querySelectorAll('[data-job-id]');
+    
+    allJobCards.forEach(card => {
+      const jobId = card.dataset.jobId;
+      if (selectedJobs.has(jobId)) {
+        const argsElement = card.querySelector('.job-args');
+        if (argsElement) {
+          selectedJobsData.push(argsElement.textContent);
+        }
+      }
+    });
+    
+    // Join all args with newlines for easy pasting
+    const textToCopy = selectedJobsData.join('\n\n');
+    
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      // Visual feedback
+      const copyBtn = document.getElementById('copy-jobs-btn');
+      const originalText = copyBtn.innerHTML;
+      copyBtn.innerHTML = 'Copied! ✓';
+      setTimeout(() => {
+        copyBtn.innerHTML = originalText;
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+      // Fallback for older browsers
+      alert('Copy failed. Please select and copy manually.');
+    }
+  }
   function renderCalendar(date) {
     const calendarGrid = document.getElementById('calendar-grid');
     calendarGrid.innerHTML = '';
@@ -337,6 +421,10 @@
     const jobsPerDay = getJobsForMonth(year, month);
     const jobsOnThisDay = jobsPerDay[`${year}-${month}-${day}`] || [];
 
+    // Clear previous selections when opening new day
+    selectedJobs.clear();
+    updateCopyButton();
+
     const modalDateString = selectedDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     document.getElementById('modal-title').textContent =
       `Jobs for ${modalDateString} — ${currentCalendarKey}`;
@@ -361,6 +449,7 @@
       groups.get(key).push(j);
     }
 
+    let jobIndex = 0; // For unique job IDs
     for (const [hhmm, arr] of groups) {
       const header = document.createElement('div');
       header.className = 'mt-2 text-xs uppercase tracking-wide text-gray-500';
@@ -370,9 +459,11 @@
       for (const job of arr) {
         const scheduledTimeIL = luxon.DateTime.fromJSDate(job.scheduledTime, { zone: 'Asia/Jerusalem' }).toFormat('HH:mm');
         const colorClass = colorMap[job.class] || colorMap[job.account] || 'bg-gray-500';
+        const jobId = `job-${jobIndex++}`;
 
         const card = document.createElement('div');
-        card.className = 'grid grid-cols-[6rem_1fr] gap-4 p-4 bg-gray-50 rounded-xl shadow-sm border border-gray-200';
+        card.className = 'grid grid-cols-[6rem_1fr] gap-4 p-4 bg-gray-50 rounded-xl shadow-sm border border-gray-200 cursor-pointer select-none transition-all duration-200 hover:shadow-md';
+        card.dataset.jobId = jobId;
 
         card.innerHTML = `
           <div class="flex flex-col items-start">
@@ -390,12 +481,19 @@
               <div><span class="font-medium">Timezone:</span> ${job.timezone || 'Asia/Jerusalem'}</div>
               <div class="flex items-start gap-2">
                 <span class="font-medium mt-0.5">Args:</span>
-                <pre class="text-xs bg-white px-2 py-1 rounded border overflow-x-auto whitespace-pre-wrap break-words max-h-32">${job.args || '-'}</pre>
+                <pre class="job-args text-xs bg-white px-2 py-1 rounded border overflow-x-auto whitespace-pre-wrap break-words max-h-32">${job.args || '-'}</pre>
               </div>
               <div class="text-gray-600 break-words">${job['job description'] || ''}</div>
             </div>
           </div>
         `;
+        
+        // Add click event for job selection
+        card.addEventListener('click', (e) => {
+          e.stopPropagation(); // Prevent modal from closing
+          toggleJobSelection(jobId, e.shiftKey);
+        });
+        
         jobList.appendChild(card);
       }
     }
@@ -438,6 +536,9 @@
   document.getElementById('prev-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth()-1); renderCalendar(currentDate); });
   document.getElementById('next-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth()+1); renderCalendar(currentDate); });
   document.getElementById('close-modal').addEventListener('click', () => document.getElementById('job-modal').classList.add('hidden'));
+
+  // Copy jobs functionality
+  document.getElementById('copy-jobs-btn').addEventListener('click', copySelectedJobs);
 
   // Close modal when clicking on background (outside the white content box)
   document.getElementById('job-modal').addEventListener('click', (e) => {
