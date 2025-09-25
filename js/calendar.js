@@ -439,6 +439,14 @@
   document.getElementById('next-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth()+1); renderCalendar(currentDate); });
   document.getElementById('close-modal').addEventListener('click', () => document.getElementById('job-modal').classList.add('hidden'));
 
+  // Close modal when clicking on background (outside the white content box)
+  document.getElementById('job-modal').addEventListener('click', (e) => {
+    // Only close if the click target is the modal background itself, not its children
+    if (e.target.id === 'job-modal') {
+      document.getElementById('job-modal').classList.add('hidden');
+    }
+  });
+
   // Initial load
   await loadCalendars();
   await populateCalendarDropdown();
