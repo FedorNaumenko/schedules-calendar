@@ -7,6 +7,18 @@ node_modules/
 .env.local
 .env.production
 
+# Build output
+dist/
+
+# Legacy files
+config.jscode/
+.DS_Store
+
+# Environment variables (contains sensitive API keys)
+.env
+.env.local
+.env.production
+
 # Netlify
 .netlify/
 

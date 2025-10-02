@@ -6,24 +6,23 @@
 // Wrap everything in an async IIFE to match the original structure exactly
 (async function () {
   // ============ CONFIG ============
-  // API key is now secure on the server side
+  // For GitHub Pages deployment, this gets replaced by GitHub Actions
+  // For local development, you can either:
+  // 1. Replace 'YOUR_API_KEY_HERE' with your actual API key, or
+  // 2. Use the local development setup (see README.md)
+  const GOOGLE_SHEETS_API_KEY = 'YOUR_API_KEY_HERE';
   
-  // Load calendars from secure API
-  let CALENDARS = {};
-  
-  // Load calendar configuration from secure endpoint
-  async function loadCalendars() {
-    try {
-      const response = await fetch('/api/calendars');
-      if (!response.ok) throw new Error('Failed to load calendars');
-      const data = await response.json();
-      CALENDARS = data.calendars;
-    } catch (error) {
-      console.error('Error loading calendars:', error);
-      // Fallback to empty config
-      CALENDARS = {};
+  // Calendar configurations
+  const CALENDARS = {
+    "Feed Processor Schedulers - US": {
+      sheetId: "1gusA2pYc4q7MjJ-n2Yso5MoyjGq-tYPMzXoLeivuPr4",
+      tab: "feed processor schedulers - us"
+    },
+    "ETL_US": {
+      sheetId: "1hWaU-8J-OM8cwtsM774arn8xSNDcH1pKXb4p7EnOj-E"
+      // tab: "Sheet1" // set if not first
     }
-  }
+  };
 
   // Cache for first-tab titles to reduce extra meta calls
   const metaCache = new Map(); // sheetId -> firstTabTitle
@@ -169,11 +168,11 @@
 
   async function getFirstTabTitle(sheetId) {
     if (metaCache.has(sheetId)) return metaCache.get(sheetId);
-    const url = `/api/sheet-meta?sheetId=${sheetId}`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?key=${GOOGLE_SHEETS_API_KEY}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Sheets meta error ${res.status}`);
     const info = await res.json();
-    const title = info.title;
+    const title = info.sheets[0].properties.title;
     metaCache.set(sheetId, title);
     return title;
   }
@@ -184,13 +183,14 @@
     if (!tabName) tabName = await getFirstTabTitle(sheetId);
     // Read plenty of columns (Delivery/ETL can spill past G)
     const range = `'${tabName}'!A1:ZZ`;
-    const url = `/api/sheet-values?sheetId=${sheetId}&range=${encodeURIComponent(range)}`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${GOOGLE_SHEETS_API_KEY}`;
     const res = await fetch(url);
     if (!res.ok) {
       const t = await res.text().catch(()=> "");
       throw new Error(`Sheets API error ${res.status}: ${t}`);
     }
-    return (await res.json()).values || [];
+    const data = await res.json();
+    return data.values || [];
   }
 
   // Cron helpers (TZ-aware using Luxon)
@@ -549,7 +549,6 @@
   });
 
   // Initial load
-  await loadCalendars();
   await populateCalendarDropdown();
   if (currentCalendarKey) {
     await loadCalendarFor(currentCalendarKey);
