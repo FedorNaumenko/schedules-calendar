@@ -348,8 +348,8 @@
       }
     });
     
-    // Join all args with newlines for easy pasting
-    const textToCopy = selectedJobsData.join('\n\n');
+    // Join all args with single newlines (no blank lines between jobs)
+    const textToCopy = selectedJobsData.join('\n');
     
     try {
       await navigator.clipboard.writeText(textToCopy);
