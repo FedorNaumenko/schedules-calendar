@@ -33,7 +33,7 @@ jobs:
         const fs = require('fs');
         const path = 'js/calendar.js';
         let content = fs.readFileSync(path, 'utf8');
-        content = content.replace('YOUR_API_KEY_HERE', process.env.GOOGLE_SHEETS_API_KEY);
+        content = content.replace('API_KEY', process.env.GOOGLE_SHEETS_API_KEY);
         fs.writeFileSync(path, content);
         console.log('API key replaced successfully');
         EOF
@@ -42,13 +42,13 @@ jobs:
         rm replace-key.js
         
         # Verify the replacement worked
-        if grep -q "YOUR_API_KEY_HERE" js/calendar.js; then
+        if grep -q "API_KEY" js/calendar.js; then
           echo "ERROR: Replacement failed"
           exit 1
         fi
         echo "Replacement verified - API key is now injected"
       env:
-        GOOGLE_SHEETS_API_KEY: ${{ secrets.GOOGLE_SHEETS_API_KEY }}
+        GOOGLE_SHEETS_API_KEY: ${{ secrets.API_KEY }}
 
     - name: Setup Pages
       uses: actions/configure-pages@v3
