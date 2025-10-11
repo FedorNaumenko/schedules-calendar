@@ -2,14 +2,15 @@
  * Calendar Scheduler Application
  * Handles Google Sheets integration and calendar rendering
  */
-import { config } from './config.js';
 
 // Wrap everything in an async IIFE to match the original structure exactly
 (async function () {
   // ============ CONFIG ============
-  // Import API key from config module
-  const GOOGLE_SHEETS_API_KEY = config.GOOGLE_SHEETS_API_KEY;
-  console.log("Using API Key:", GOOGLE_SHEETS_API_KEY ? "✓ Loaded" : "✗ Missing");
+  // For GitHub Pages deployment, this gets replaced by GitHub Actions
+  // For local development, you can either:
+  // 1. Replace 'YOUR_API_KEY_HERE' with your actual API key, or
+  // 2. Use the local development setup (see README.md)
+  const GOOGLE_SHEETS_API_KEY = 'YOUR_API_KEY_HERE';
   
   // Calendar configurations
   const CALENDARS = {
