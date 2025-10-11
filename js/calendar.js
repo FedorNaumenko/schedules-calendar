@@ -2,6 +2,8 @@
  * Calendar Scheduler Application
  * Handles Google Sheets integration and calendar rendering
  */
+import dotenv from "dotenv";
+dotenv.config();
 
 // Wrap everything in an async IIFE to match the original structure exactly
 (async function () {
@@ -10,7 +12,8 @@
   // For local development, you can either:
   // 1. Replace 'YOUR_API_KEY_HERE' with your actual API key, or
   // 2. Use the local development setup (see README.md)
-  const GOOGLE_SHEETS_API_KEY = 'YOUR_API_KEY_HERE';
+  const GOOGLE_SHEETS_API_KEY = process.env.API_KEY;
+  console.log("Using API Key:", API_KEY);
   
   // Calendar configurations
   const CALENDARS = {
