@@ -28,36 +28,25 @@ jobs:
 
     - name: Replace API key
       run: |
-        echo "Replacing API key in calendar.js..."
+        # Simple and reliable replacement using Node.js
+        cat > replace-key.js << 'EOF'
+        const fs = require('fs');
+        const path = 'js/calendar.js';
+        let content = fs.readFileSync(path, 'utf8');
+        content = content.replace('YOUR_API_KEY_HERE', process.env.GOOGLE_SHEETS_API_KEY);
+        fs.writeFileSync(path, content);
+        console.log('API key replaced successfully');
+        EOF
         
-        if [ -z "$GOOGLE_SHEETS_API_KEY" ]; then
-          echo "ERROR: GOOGLE_SHEETS_API_KEY secret is not set!"
-          exit 1
-        fi
+        node replace-key.js
+        rm replace-key.js
         
-        echo "Before replacement:"
-        grep -n "YOUR_API_KEY_HERE" js/calendar.js || echo "Placeholder not found"
-        
-        # Use Node.js for more reliable replacement
-        node -e "
-          const fs = require('fs');
-          const content = fs.readFileSync('js/calendar.js', 'utf8');
-          const newContent = content.replace(/YOUR_API_KEY_HERE/g, process.env.GOOGLE_SHEETS_API_KEY);
-          fs.writeFileSync('js/calendar.js', newContent);
-          console.log('Replacement completed');
-        "
-        
-        echo "After replacement:"
-        grep -n "AIza" js/calendar.js | head -1 || echo "API key not found"
-        
-        echo "Verifying replacement..."
+        # Verify the replacement worked
         if grep -q "YOUR_API_KEY_HERE" js/calendar.js; then
-          echo "ERROR: API key replacement failed!"
-          echo "Remaining placeholders:"
-          grep -n "YOUR_API_KEY_HERE" js/calendar.js
+          echo "ERROR: Replacement failed"
           exit 1
         fi
-        echo "API key successfully replaced"
+        echo "Replacement verified - API key is now injected"
       env:
         GOOGLE_SHEETS_API_KEY: ${{ secrets.GOOGLE_SHEETS_API_KEY }}
 
