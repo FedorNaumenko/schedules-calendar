@@ -28,21 +28,21 @@ jobs:
 
     - name: Replace API key
       run: |
-        # Simple and reliable replacement using Node.js
+        # Replace API key in config.js
         cat > replace-key.js << 'EOF'
         const fs = require('fs');
-        const path = 'js/calendar.js';
-        let content = fs.readFileSync(path, 'utf8');
+        const configPath = 'js/config.js';
+        let content = fs.readFileSync(configPath, 'utf8');
         content = content.replace('YOUR_API_KEY_HERE', process.env.GOOGLE_SHEETS_API_KEY);
-        fs.writeFileSync(path, content);
-        console.log('API key replaced successfully');
+        fs.writeFileSync(configPath, content);
+        console.log('API key replaced in config.js');
         EOF
         
         node replace-key.js
         rm replace-key.js
         
         # Verify the replacement worked
-        if grep -q "YOUR_API_KEY_HERE" js/calendar.js; then
+        if grep -q "YOUR_API_KEY_HERE" js/config.js; then
           echo "ERROR: Replacement failed"
           exit 1
         fi
