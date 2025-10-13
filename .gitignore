@@ -2,8 +2,5 @@ node_modules/
 .vscode/
 .DS_Store
 
-# Build output
-dist/
-
 # Netlify (if you ever use it)
 .netlify/
