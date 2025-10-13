@@ -4,11 +4,27 @@
  */
 
 // Wrap everything in an async IIFE to match the original structure exactly
+// (async function () {
+//   // ============ CONFIG ============
+//   // AWS API Gateway endpoint - handles Google Sheets API calls securely
+//   const API_GATEWAY_BASE_URL = 'https://5cbytf01v5.execute-api.eu-north-1.amazonaws.com';
+  
+//   // Calendar configurations
+//   const CALENDARS = {
+//     "Feed Processor Schedulers - US": {
+//       sheetId: "1gusA2pYc4q7MjJ-n2Yso5MoyjGq-tYPMzXoLeivuPr4",
+//       tab: "feed processor schedulers - us"
+//     },
+//     "ETL_US": {
+//       sheetId: "1hWaU-8J-OM8cwtsM774arn8xSNDcH1pKXb4p7EnOj-E"
+//       // tab: "Sheet1" // set if not first
+//     }
+//   };
 (async function () {
   // ============ CONFIG ============
   // AWS API Gateway endpoint - handles Google Sheets API calls securely
   const API_GATEWAY_BASE_URL = 'https://5cbytf01v5.execute-api.eu-north-1.amazonaws.com';
-  
+
   // Calendar configurations
   const CALENDARS = {
     "Feed Processor Schedulers - US": {
@@ -21,6 +37,18 @@
     }
   };
 
+  // ======================================================
+  // Fetch helper — this now calls your AWS API, not Google
+  async function fetchSheetValuesFor(calendarName, tabName) {
+    const cfg = CALENDARS[calendarName];
+    const range = "A1:ZZ";
+
+    const url = `${API_GATEWAY_BASE_URL}/values?sheetId=${encodeURIComponent(cfg.sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent(range)}`;
+
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`Proxy fetch failed: ${resp.status}`);
+    return await resp.json();
+  }
   // Cache for first-tab titles to reduce extra meta calls
   const metaCache = new Map(); // sheetId -> firstTabTitle
 
