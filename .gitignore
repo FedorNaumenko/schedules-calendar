@@ -2,29 +2,8 @@ node_modules/
 .vscode/
 .DS_Store
 
-# Environment variables (contains sensitive API keys)
-.env
-.env.local
-.env.production
-
 # Build output
 dist/
 
-# Legacy files
-config.jscode/
-.DS_Store
-
-# Environment variables (contains sensitive API keys)
-.env
-.env.local
-.env.production
-
-# Netlify
+# Netlify (if you ever use it)
 .netlify/
-
-# Config files with exposed keys (legacy)
-config.js
-
-# keep only the compiled CSS you serve
-dist/*
-!dist/styles.css

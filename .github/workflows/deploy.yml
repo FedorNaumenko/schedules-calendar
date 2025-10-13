@@ -26,30 +26,6 @@ jobs:
     - name: Build CSS
       run: npm run build-css
 
-    - name: Replace API key
-      run: |
-        # Simple and reliable replacement using Node.js
-        cat > replace-key.js << 'EOF'
-        const fs = require('fs');
-        const path = 'js/calendar.js';
-        let content = fs.readFileSync(path, 'utf8');
-        content = content.replace('YOUR_API_KEY_HERE', process.env.API_KEY);
-        fs.writeFileSync(path, content);
-        console.log('API key replaced successfully');
-        EOF
-        
-        node replace-key.js
-        rm replace-key.js
-        
-        # Verify the replacement worked
-        if grep -q "YOUR_API_KEY_HERE" js/calendar.js; then
-          echo "ERROR: Replacement failed"
-          exit 1
-        fi
-        echo "Replacement verified - API key is now injected"
-      env:
-        API_KEY: ${{ secrets.API_KEY }}
-
     - name: Setup Pages
       uses: actions/configure-pages@v3
 
