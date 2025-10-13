@@ -6,24 +6,8 @@
 // Wrap everything in an async IIFE to match the original structure exactly
 (async function () {
   // ============ CONFIG ============
-  // Smart API key detection for different environments
-  function getApiKey() {
-    // Production: GitHub Pages - gets replaced by GitHub Actions
-    if (window.location.hostname === 'fedornaumenko.github.io') {
-      return 'YOUR_API_KEY_HERE'; // This gets replaced during deployment
-    }
-    
-    // Local development: Use your actual API key here
-    // You can safely put your real API key here since this won't run in production
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') {
-      return 'AIzaSyBz3U6ehuu1FPlgYHqcpwF5OyyyHVZrzwE'; // Your actual API key for local testing
-    }
-    
-    // Fallback
-    return 'YOUR_API_KEY_HERE';
-  }
-  
-  const GOOGLE_SHEETS_API_KEY = getApiKey();
+  // AWS API Gateway endpoint - handles Google Sheets API calls securely
+  const API_GATEWAY_BASE_URL = 'https://5cbytf01v5.execute-api.eu-north-1.amazonaws.com';
   
   // Calendar configurations
   const CALENDARS = {
@@ -181,22 +165,31 @@
 
   async function getFirstTabTitle(sheetId) {
     if (metaCache.has(sheetId)) return metaCache.get(sheetId);
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?key=${GOOGLE_SHEETS_API_KEY}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Sheets meta error ${res.status}`);
-    const info = await res.json();
-    const title = info.sheets[0].properties.title;
-    metaCache.set(sheetId, title);
-    return title;
+    // For your Lambda function, we'll need to make a separate API call to get sheet metadata
+    // Since your current Lambda only handles values, let's use a workaround with the first configured tab
+    // This is a simple approach that avoids needing sheet metadata API
+    
+    // Find the first calendar config for this sheetId to get the tab name
+    for (const [calendarKey, config] of Object.entries(CALENDARS)) {
+      if (config.sheetId === sheetId && config.tab) {
+        metaCache.set(sheetId, config.tab);
+        return config.tab;
+      }
+    }
+    
+    // Fallback to "Sheet1" if no tab specified in config
+    const fallbackTitle = "Sheet1";
+    metaCache.set(sheetId, fallbackTitle);
+    return fallbackTitle;
   }
 
   async function fetchSheetValuesFor(calendarKey) {
     const { sheetId, tab } = CALENDARS[calendarKey];
     let tabName = tab;
     if (!tabName) tabName = await getFirstTabTitle(sheetId);
-    // Read plenty of columns (Delivery/ETL can spill past G)
-    const range = `'${tabName}'!A1:ZZ`;
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${GOOGLE_SHEETS_API_KEY}`;
+    
+    // Your Lambda function expects sheetId, sheet (tab name), and range parameters
+    const url = `${API_GATEWAY_BASE_URL}?sheetId=${sheetId}&sheet=${encodeURIComponent(tabName)}&range=A1:ZZ`;
     const res = await fetch(url);
     if (!res.ok) {
       const t = await res.text().catch(()=> "");
