@@ -218,6 +218,7 @@
     
     // Your Lambda function expects sheetId, sheet (tab name), and range parameters
     const url = `${API_GATEWAY_BASE_URL}/values?sheetId=${encodeURIComponent(sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent("A1:ZZ")}`;
+    console.log("FETCH URL ->", url);
     const res = await fetch(url);
     if (!res.ok) {
       const t = await res.text().catch(()=> "");
