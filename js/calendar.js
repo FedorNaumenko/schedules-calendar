@@ -6,11 +6,24 @@
 // Wrap everything in an async IIFE to match the original structure exactly
 (async function () {
   // ============ CONFIG ============
-  // For GitHub Pages deployment, this gets replaced by GitHub Actions
-  // For local development, you can either:
-  // 1. Replace 'YOUR_API_KEY_HERE' with your actual API key, or
-  // 2. Use the local development setup (see README.md)
-  const GOOGLE_SHEETS_API_KEY = 'YOUR_API_KEY_HERE';
+  // Smart API key detection for different environments
+  function getApiKey() {
+    // Production: GitHub Pages - gets replaced by GitHub Actions
+    if (window.location.hostname === 'fedornaumenko.github.io') {
+      return 'YOUR_API_KEY_HERE'; // This gets replaced during deployment
+    }
+    
+    // Local development: Use your actual API key here
+    // You can safely put your real API key here since this won't run in production
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') {
+      return 'AIzaSyBz3U6ehuu1FPlgYHqcpwF5OyyyHVZrzwE'; // Your actual API key for local testing
+    }
+    
+    // Fallback
+    return 'YOUR_API_KEY_HERE';
+  }
+  
+  const GOOGLE_SHEETS_API_KEY = getApiKey();
   
   // Calendar configurations
   const CALENDARS = {
