@@ -7,7 +7,7 @@
 (async function () {
   // ============ CONFIG ============
   // AWS API Gateway endpoint - handles Google Sheets API calls securely
-  const API_GATEWAY_BASE_URL = 'https://5cbytf01v5.execute-api.eu-north-1.amazonaws.com/default';
+  const API_GATEWAY_BASE_URL = 'https://5cbytf01v5.execute-api.eu-north-1.amazonaws.com';
 
   // Calendar configurations
   const CALENDARS = {
@@ -51,6 +51,7 @@
     const cfg = CALENDARS[calendarName];
     const range = "A1:ZZ";
 
+  //  const url = `${API_GATEWAY_BASE_URL}/values?sheetId=${encodeURIComponent(cfg.sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent(range)}`;
     const url = `${API_GATEWAY_BASE_URL}?sheetId=${encodeURIComponent(cfg.sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent(range)}`;
 
     const resp = await fetch(url);
@@ -225,7 +226,7 @@
     if (!tabName) tabName = await getFirstTabTitle(sheetId);
     
     // Your Lambda function expects sheetId, sheet (tab name), and range parameters
-    const url = `${API_GATEWAY_BASE_URL}?sheetId=${encodeURIComponent(sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent("A1:ZZ")}`;
+    const url = `${API_GATEWAY_BASE_URL}/values?sheetId=${encodeURIComponent(sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent("A1:ZZ")}`;
     console.log("FETCH URL ->", url);
     const res = await fetch(url);
     if (!res.ok) {
