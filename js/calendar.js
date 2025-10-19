@@ -31,9 +31,13 @@
       sheetId: "1gusA2pYc4q7MjJ-n2Yso5MoyjGq-tYPMzXoLeivuPr4",
       tab: "feed processor schedulers - us"
     },
-    "ETL_US": {
-      sheetId: "1hWaU-8J-OM8cwtsM774arn8xSNDcH1pKXb4p7EnOj-E"
-      // tab: "Sheet1" // set if not first
+    "ETL Summary - US": {
+      sheetId: "1hWaU-8J-OM8cwtsM774arn8xSNDcH1pKXb4p7EnOj-E",
+      tab: "ETLS - US"
+    },
+    "ETL Summary - EU": {
+      sheetId: "1hWaU-8J-OM8cwtsM774arn8xSNDcH1pKXb4p7EnOj-E",
+      tab: "ETLS - EU"
     }
   };
 
