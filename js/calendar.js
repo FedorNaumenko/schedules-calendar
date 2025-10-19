@@ -29,7 +29,11 @@
   const CALENDARS = {
     "Feed Processor Schedulers - US": {
       sheetId: "1gusA2pYc4q7MjJ-n2Yso5MoyjGq-tYPMzXoLeivuPr4",
-      tab: "feed processor schedulers - us"
+      tab: "us"
+    },
+    "Feed Processor Schedulers - EU": {
+      sheetId: "1gusA2pYc4q7MjJ-n2Yso5MoyjGq-tYPMzXoLeivuPr4",
+      tab: "eu"
     },
     "ETL Summary - US": {
       sheetId: "1hWaU-8J-OM8cwtsM774arn8xSNDcH1pKXb4p7EnOj-E",
