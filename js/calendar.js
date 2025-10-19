@@ -3,27 +3,11 @@
  * Handles Google Sheets integration and calendar rendering
  */
 
-// Wrap everything in an async IIFE to match the original structure exactly
-// (async function () {
-//   // ============ CONFIG ============
-//   // AWS API Gateway endpoint - handles Google Sheets API calls securely
-//   const API_GATEWAY_BASE_URL = 'https://5cbytf01v5.execute-api.eu-north-1.amazonaws.com';
-  
-//   // Calendar configurations
-//   const CALENDARS = {
-//     "Feed Processor Schedulers - US": {
-//       sheetId: "1gusA2pYc4q7MjJ-n2Yso5MoyjGq-tYPMzXoLeivuPr4",
-//       tab: "feed processor schedulers - us"
-//     },
-//     "ETL_US": {
-//       sheetId: "1hWaU-8J-OM8cwtsM774arn8xSNDcH1pKXb4p7EnOj-E"
-//       // tab: "Sheet1" // set if not first
-//     }
-//   };
+
 (async function () {
   // ============ CONFIG ============
   // AWS API Gateway endpoint - handles Google Sheets API calls securely
-  const API_GATEWAY_BASE_URL = 'https://5cbytf01v5.execute-api.eu-north-1.amazonaws.com';
+  const API_GATEWAY_BASE_URL = 'https://5cbytf01v5.execute-api.eu-north-1.amazonaws.com/default';
 
   // Calendar configurations
   const CALENDARS = {
@@ -42,6 +26,22 @@
     "ETL Summary - EU": {
       sheetId: "1hWaU-8J-OM8cwtsM774arn8xSNDcH1pKXb4p7EnOj-E",
       tab: "ETLS - EU"
+    },
+    "Delivery Processor Schedulers - US": {
+      sheetId: "1nGjY4pf08ojuXqSN7D2p1S1HL1o6uKeAMRl1ySOODxg",
+      tab: "us"
+    },
+    "Delivery Processor Schedulers - EU": {
+      sheetId: "1nGjY4pf08ojuXqSN7D2p1S1HL1o6uKeAMRl1ySOODxg",
+      tab: "eu"
+    },
+    "Running Processor Schedulers - US": {
+      sheetId: "15sn5XMQlHET0vvhKIj5FdWSqKmmlkrwuROzJnf96gk0",
+      tab: "us"
+    },
+    "Running Processor Schedulers - EU": {
+      sheetId: "15sn5XMQlHET0vvhKIj5FdWSqKmmlkrwuROzJnf96gk0",
+      tab: "eu"
     }
   };
 
@@ -51,7 +51,7 @@
     const cfg = CALENDARS[calendarName];
     const range = "A1:ZZ";
 
-    const url = `${API_GATEWAY_BASE_URL}/values?sheetId=${encodeURIComponent(cfg.sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent(range)}`;
+    const url = `${API_GATEWAY_BASE_URL}?sheetId=${encodeURIComponent(cfg.sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent(range)}`;
 
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`Proxy fetch failed: ${resp.status}`);
