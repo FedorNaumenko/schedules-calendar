@@ -72,6 +72,36 @@
           </button>
         </div>
       </div>
+      
+      <!-- Time Range Filter -->
+      <div class="py-4 border-b border-gray-100">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-medium text-gray-700">Filter by time:</span>
+          <div class="flex items-center gap-2">
+            <span id="time-range-display" class="text-sm text-gray-600 font-mono">00:00 - 23:59</span>
+            <button id="reset-time-filter" class="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50">Reset</button>
+          </div>
+        </div>
+        <div class="relative px-2">
+          <!-- Time scale background -->
+          <div id="time-scale-container" class="h-10 bg-gradient-to-r from-gray-100 to-gray-50 rounded-lg relative border border-gray-200">
+            <!-- Hour markers -->
+            <div class="absolute inset-0 flex text-[10px] text-gray-400 pointer-events-none">
+              <div class="flex-1 flex items-end justify-center pb-1">0</div>
+              <div class="flex-1 flex items-end justify-center pb-1">6</div>
+              <div class="flex-1 flex items-end justify-center pb-1">12</div>
+              <div class="flex-1 flex items-end justify-center pb-1">18</div>
+              <div class="flex-1 flex items-end justify-center pb-1">24</div>
+            </div>
+            <!-- Selected range highlight -->
+            <div id="time-range-highlight" class="absolute top-0 bottom-0 bg-blue-400 bg-opacity-30 pointer-events-none rounded" style="left: 0%; width: 100%;"></div>
+            <!-- Draggable handles -->
+            <div id="time-handle-start" class="absolute top-0 w-3 h-full bg-blue-600 cursor-ew-resize hover:bg-blue-700 transition-colors shadow-lg" style="left: 0%;"></div>
+            <div id="time-handle-end" class="absolute top-0 w-3 h-full bg-blue-600 cursor-ew-resize hover:bg-blue-700 transition-colors shadow-lg" style="left: 100%;"></div>
+          </div>
+        </div>
+      </div>
+      
       <div id="job-list" class="mt-4 space-y-3 overflow-y-auto"></div>
       <div id="no-jobs-message" class="mt-4 text-center text-gray-500 hidden">No jobs scheduled for this day.</div>
     </div>

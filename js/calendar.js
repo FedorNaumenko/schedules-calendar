@@ -11,11 +11,11 @@
 
   // Calendar configurations
   const CALENDARS = {
-    "Feed Processor Schedulers - US": {
+    "Feed Schedulers - US": {
       sheetId: "1gusA2pYc4q7MjJ-n2Yso5MoyjGq-tYPMzXoLeivuPr4",
       tab: "us"
     },
-    "Feed Processor Schedulers - EU": {
+    "Feed Schedulers - EU": {
       sheetId: "1gusA2pYc4q7MjJ-n2Yso5MoyjGq-tYPMzXoLeivuPr4",
       tab: "eu"
     },
@@ -27,19 +27,19 @@
       sheetId: "1hWaU-8J-OM8cwtsM774arn8xSNDcH1pKXb4p7EnOj-E",
       tab: "ETLS - EU"
     },
-    "Delivery Processor Schedulers - US": {
+    "Delivery Schedulers - US": {
       sheetId: "1nGjY4pf08ojuXqSN7D2p1S1HL1o6uKeAMRl1ySOODxg",
       tab: "us"
     },
-    "Delivery Processor Schedulers - EU": {
+    "Delivery Schedulers - EU": {
       sheetId: "1nGjY4pf08ojuXqSN7D2p1S1HL1o6uKeAMRl1ySOODxg",
       tab: "eu"
     },
-    "Running Processor Schedulers - US": {
+    "Running Schedulers - US": {
       sheetId: "15sn5XMQlHET0vvhKIj5FdWSqKmmlkrwuROzJnf96gk0",
       tab: "us"
     },
-    "Running Processor Schedulers - EU": {
+    "Running Schedulers - EU": {
       sheetId: "15sn5XMQlHET0vvhKIj5FdWSqKmmlkrwuROzJnf96gk0",
       tab: "eu"
     }
@@ -459,41 +459,110 @@
     }
   }
 
-  function showJobsForDay(dateString) {
-    const [year, month, day] = dateString.split('-').map(Number);
-    const selectedDate = new Date(year, month, day);
-    const jobsPerDay = getJobsForMonth(year, month);
-    const jobsOnThisDay = jobsPerDay[`${year}-${month}-${day}`] || [];
+  // ============ TIME FILTER STATE ============
+  let currentDayJobs = [];
+  let timeFilterStart = 0;     // 0-23.99 hours
+  let timeFilterEnd = 23.99;   // 0-23.99 hours
 
-    // Clear previous selections when opening new day
-    selectedJobs.clear();
-    updateCopyButton();
+  function setupTimeFilter() {
+    const container = document.getElementById('time-scale-container');
+    const handleStart = document.getElementById('time-handle-start');
+    const handleEnd = document.getElementById('time-handle-end');
+    const highlight = document.getElementById('time-range-highlight');
+    const display = document.getElementById('time-range-display');
+    const resetBtn = document.getElementById('reset-time-filter');
 
-    const modalDateString = selectedDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    document.getElementById('modal-title').textContent =
-      `Jobs for ${modalDateString} — ${currentCalendarKey}`;
+    let dragging = null;
+
+    function updateUI() {
+      const startPct = (timeFilterStart / 24) * 100;
+      const endPct = (timeFilterEnd / 24) * 100;
+      
+      handleStart.style.left = `${startPct}%`;
+      handleEnd.style.left = `${endPct}%`;
+      highlight.style.left = `${startPct}%`;
+      highlight.style.width = `${endPct - startPct}%`;
+
+      const startHH = Math.floor(timeFilterStart);
+      const startMM = Math.floor((timeFilterStart % 1) * 60);
+      const endHH = Math.floor(timeFilterEnd);
+      const endMM = Math.floor((timeFilterEnd % 1) * 60);
+      display.textContent = `${String(startHH).padStart(2, '0')}:${String(startMM).padStart(2, '0')} - ${String(endHH).padStart(2, '0')}:${String(endMM).padStart(2, '0')}`;
+      
+      filterAndDisplayJobs();
+    }
+
+    function onMouseMove(e) {
+      if (!dragging) return;
+      const rect = container.getBoundingClientRect();
+      const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+      const hour = (x / rect.width) * 24;
+
+      if (dragging === 'start') {
+        timeFilterStart = Math.min(hour, timeFilterEnd - 0.25);
+      } else {
+        timeFilterEnd = Math.max(hour, timeFilterStart + 0.25);
+      }
+      updateUI();
+    }
+
+    function onMouseUp() {
+      dragging = null;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    }
+
+    handleStart.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      dragging = 'start';
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+
+    handleEnd.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      dragging = 'end';
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+
+    resetBtn.addEventListener('click', () => {
+      timeFilterStart = 0;
+      timeFilterEnd = 23.99;
+      updateUI();
+    });
+
+    updateUI();
+  }
+
+  function filterAndDisplayJobs() {
     const jobList = document.getElementById('job-list');
     const noJobsMessage = document.getElementById('no-jobs-message');
     jobList.innerHTML = '';
 
-    if (jobsOnThisDay.length === 0) {
+    // Filter jobs by time range
+    const filteredJobs = currentDayJobs.filter(job => {
+      const dt = luxon.DateTime.fromJSDate(job.scheduledTime, { zone: 'Asia/Jerusalem' });
+      const hour = dt.hour + dt.minute / 60;
+      return hour >= timeFilterStart && hour <= timeFilterEnd;
+    });
+
+    if (filteredJobs.length === 0) {
       noJobsMessage.classList.remove('hidden');
-      document.getElementById('job-modal').classList.remove('hidden');
-      document.getElementById('job-modal').classList.add('flex');
       return;
     }
     noJobsMessage.classList.add('hidden');
 
-    // sort & group by minute (Israel time)
-    jobsOnThisDay.sort((a,b) => a.scheduledTime - b.scheduledTime);
+    // Sort & group by minute
+    filteredJobs.sort((a,b) => a.scheduledTime - b.scheduledTime);
     const groups = new Map();
-    for (const j of jobsOnThisDay) {
+    for (const j of filteredJobs) {
       const key = luxon.DateTime.fromJSDate(j.scheduledTime, { zone: 'Asia/Jerusalem' }).toFormat('HH:mm');
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(j);
     }
 
-    let jobIndex = 0; // For unique job IDs
+    let jobIndex = 0;
     for (const [hhmm, arr] of groups) {
       const header = document.createElement('div');
       header.className = 'mt-2 text-xs uppercase tracking-wide text-gray-500';
@@ -532,15 +601,49 @@
           </div>
         `;
         
-        // Add click event for job selection
         card.addEventListener('click', (e) => {
-          e.stopPropagation(); // Prevent modal from closing
+          e.stopPropagation();
           toggleJobSelection(jobId, e.shiftKey);
         });
         
         jobList.appendChild(card);
       }
     }
+  }
+
+  function showJobsForDay(dateString) {
+    const [year, month, day] = dateString.split('-').map(Number);
+    const selectedDate = new Date(year, month, day);
+    const jobsPerDay = getJobsForMonth(year, month);
+    const jobsOnThisDay = jobsPerDay[`${year}-${month}-${day}`] || [];
+
+    // Clear previous selections when opening new day
+    selectedJobs.clear();
+    updateCopyButton();
+
+    // Store jobs and reset time filter
+    currentDayJobs = jobsOnThisDay;
+    timeFilterStart = 0;
+    timeFilterEnd = 23.99;
+
+    const modalDateString = selectedDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    document.getElementById('modal-title').textContent =
+      `Jobs for ${modalDateString} — ${currentCalendarKey}`;
+    const jobList = document.getElementById('job-list');
+    const noJobsMessage = document.getElementById('no-jobs-message');
+    jobList.innerHTML = '';
+
+    if (jobsOnThisDay.length === 0) {
+      noJobsMessage.classList.remove('hidden');
+      document.getElementById('job-modal').classList.remove('hidden');
+      document.getElementById('job-modal').classList.add('flex');
+      return;
+    }
+    noJobsMessage.classList.add('hidden');
+
+    // Setup time filter and display jobs
+    setupTimeFilter();
+    filterAndDisplayJobs();
 
     const modal = document.getElementById('job-modal');
     modal.classList.remove('hidden');
