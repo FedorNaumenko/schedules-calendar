@@ -221,7 +221,7 @@
     let tabName = tab;
     if (!tabName) tabName = await getFirstTabTitle(sheetId);
     
-    const url = `${API_GATEWAY_BASE_URL}?sheetId=${encodeURIComponent(sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent("A1:ZZ")}`;
+    const url = `${API_GATEWAY_BASE_URL}/default?sheetId=${encodeURIComponent(sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent("A1:ZZ")}`;
     console.log("FETCH URL ->", url);
     const res = await fetch(url);
     if (!res.ok) {
