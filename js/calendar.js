@@ -46,12 +46,11 @@
   };
 
   // ======================================================
-  // Fetch helper — this now calls your AWS API, not Google
+  // Fetch helper 
   async function fetchSheetValuesFor(calendarName, tabName) {
     const cfg = CALENDARS[calendarName];
     const range = "A1:ZZ";
 
-  //  const url = `${API_GATEWAY_BASE_URL}/values?sheetId=${encodeURIComponent(cfg.sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent(range)}`;
     const url = `${API_GATEWAY_BASE_URL}?sheetId=${encodeURIComponent(cfg.sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent(range)}`;
 
     const resp = await fetch(url);
@@ -202,9 +201,6 @@
 
   async function getFirstTabTitle(sheetId) {
     if (metaCache.has(sheetId)) return metaCache.get(sheetId);
-    // For your Lambda function, we'll need to make a separate API call to get sheet metadata
-    // Since your current Lambda only handles values, let's use a workaround with the first configured tab
-    // This is a simple approach that avoids needing sheet metadata API
     
     // Find the first calendar config for this sheetId to get the tab name
     for (const [calendarKey, config] of Object.entries(CALENDARS)) {
@@ -225,7 +221,6 @@
     let tabName = tab;
     if (!tabName) tabName = await getFirstTabTitle(sheetId);
     
-    // Your Lambda function expects sheetId, sheet (tab name), and range parameters
     const url = `${API_GATEWAY_BASE_URL}/values?sheetId=${encodeURIComponent(sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent("A1:ZZ")}`;
     console.log("FETCH URL ->", url);
     const res = await fetch(url);
@@ -678,7 +673,6 @@
       .map(k => `<option value="${k}">${k}</option>`)
       .join('');
     
-    // Set the first calendar as default if none set
     if (!currentCalendarKey && calendarKeys.length > 0) {
       currentCalendarKey = calendarKeys[0];
     }
