@@ -475,11 +475,17 @@
     let dragging = null;
 
     function updateUI() {
+      const handleWidth = handleStart.offsetWidth;
+      const containerWidth = container.offsetWidth;
+      
       const startPct = (timeFilterStart / 24) * 100;
       const endPct = (timeFilterEnd / 24) * 100;
       
-      handleStart.style.left = `${startPct}%`;
-      handleEnd.style.left = `${endPct}%`;
+      // Offset handles by half their width so they center on the time position
+      const handleOffsetPct = (handleWidth / containerWidth) * 50;
+      
+      handleStart.style.left = `calc(${startPct}% - ${handleOffsetPct}%)`;
+      handleEnd.style.left = `calc(${endPct}% - ${handleOffsetPct}%)`;
       highlight.style.left = `${startPct}%`;
       highlight.style.width = `${endPct - startPct}%`;
 
@@ -495,6 +501,9 @@
     function onMouseMove(e) {
       if (!dragging) return;
       const rect = container.getBoundingClientRect();
+      const handleWidth = handleStart.offsetWidth;
+      
+      // Calculate mouse position relative to container, accounting for handle center
       const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
       const hour = (x / rect.width) * 24;
 
