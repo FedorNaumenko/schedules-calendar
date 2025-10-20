@@ -47,16 +47,16 @@
 
   // ======================================================
   // Fetch helper 
-  async function fetchSheetValuesFor(calendarName, tabName) {
-    const cfg = CALENDARS[calendarName];
-    const range = "A1:ZZ";
+  // async function fetchSheetValuesFor(calendarName, tabName) {
+  //   const cfg = CALENDARS[calendarName];
+  //   const range = "A1:ZZ";
 
-    const url = `${API_GATEWAY_BASE_URL}/values?sheetId=${encodeURIComponent(cfg.sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent(range)}`;
+  //   const url = `${API_GATEWAY_BASE_URL}/values?sheetId=${encodeURIComponent(cfg.sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent(range)}`;
 
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`Proxy fetch failed: ${resp.status}`);
-    return await resp.json();
-  }
+  //   const resp = await fetch(url);
+  //   if (!resp.ok) throw new Error(`Proxy fetch failed: ${resp.status}`);
+  //   return await resp.json();
+  // }
   // Cache for first-tab titles to reduce extra meta calls
   const metaCache = new Map(); // sheetId -> firstTabTitle
 
