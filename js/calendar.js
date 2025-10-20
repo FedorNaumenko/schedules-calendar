@@ -51,7 +51,7 @@
     const cfg = CALENDARS[calendarName];
     const range = "A1:ZZ";
 
-    const url = `${API_GATEWAY_BASE_URL}?sheetId=${encodeURIComponent(cfg.sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent(range)}`;
+    const url = `${API_GATEWAY_BASE_URL}/values?sheetId=${encodeURIComponent(cfg.sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent(range)}`;
 
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`Proxy fetch failed: ${resp.status}`);
@@ -221,7 +221,7 @@
     let tabName = tab;
     if (!tabName) tabName = await getFirstTabTitle(sheetId);
     
-    const url = `${API_GATEWAY_BASE_URL}/default?sheetId=${encodeURIComponent(sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent("A1:ZZ")}`;
+    const url = `${API_GATEWAY_BASE_URL}/values?sheetId=${encodeURIComponent(sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent("A1:ZZ")}`;
     console.log("FETCH URL ->", url);
     const res = await fetch(url);
     if (!res.ok) {
