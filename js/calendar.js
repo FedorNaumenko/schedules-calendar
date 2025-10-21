@@ -794,7 +794,7 @@
       renderCalendar(currentDate);
     } catch (error) {
       console.error("Failed to load calendar:", error);
-      alert(`❌ Failed to load "${calendarKey}":\n\n${error.message}\n\nPlease check:\n1. AWS Lambda is deployed with the fix\n2. Google API key is valid\n3. Sheet permissions are correct`);
+      alert(`Failed to load "${calendarKey}":\n\n${error.message}\n Please try to refresh.`);
     }
   }
 
