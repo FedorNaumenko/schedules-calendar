@@ -222,13 +222,16 @@
     if (!tabName) tabName = await getFirstTabTitle(sheetId);
     
     const url = `${API_GATEWAY_BASE_URL}/values?sheetId=${encodeURIComponent(sheetId)}&sheet=${encodeURIComponent(tabName)}&range=${encodeURIComponent("A1:ZZ")}`;
-    console.log("FETCH URL ->", url);
+    console.log("Fetching:", { calendarKey, sheetId, tab: tabName, url });
+    
     const res = await fetch(url);
     if (!res.ok) {
       const t = await res.text().catch(()=> "");
+      console.error("API Error:", { status: res.status, response: t, calendarKey, tab: tabName });
       throw new Error(`Sheets API error ${res.status}: ${t}`);
     }
     const data = await res.json();
+    console.log("Received data:", { calendarKey, rowCount: data.values?.length || 0 });
     return data.values || [];
   }
 
@@ -659,10 +662,14 @@
     currentCalendarKey = calendarKey;
     document.getElementById('calendar-select').value = calendarKey;
 
-    const values = await fetchSheetValuesFor(calendarKey);
-    loadedJobs = buildLoadedJobs(values);
-
-    renderCalendar(currentDate);
+    try {
+      const values = await fetchSheetValuesFor(calendarKey);
+      loadedJobs = buildLoadedJobs(values);
+      renderCalendar(currentDate);
+    } catch (error) {
+      console.error("Failed to load calendar:", error);
+      alert(`❌ Failed to load "${calendarKey}":\n\n${error.message}\n\nPlease check:\n1. AWS Lambda is deployed with the fix\n2. Google API key is valid\n3. Sheet permissions are correct`);
+    }
   }
 
   // Populate dropdown after calendars are loaded
