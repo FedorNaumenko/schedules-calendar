@@ -147,7 +147,12 @@
       const rawArgs = getField(r, 'args','Args','parameters');
       const argsObj = parseArgs(rawArgs);
 
-      // class (prefer explicit, else from args; ETL fallback 'etl')
+      // Get the job name (processor name) to display in the "Class" field
+      const nameExplicit = getField(r, 'job name','Job name','Job Name','name','File Name');
+      const processorName = argsObj.processor || argsObj.klass || argsObj.class;
+      const nameDerived  = nameExplicit || processorName || '(unnamed)';
+
+      // Keep original class for filtering/coloring purposes
       const klassFromCol  = getField(r, 'class','job class','type');
       const klassFromArgs = argsObj.klass || argsObj.class || argsObj.processor;
       const hasEtlHints   = !!(getField(r, 'File Name') || getField(r, 'Scheduled') || getField(r, 'Schedule'));
@@ -157,10 +162,6 @@
       const accountFromCol  = getField(r, 'account','account name','client','Client_key','client_key');
       const accountFromArgs = argsObj.client_key || argsObj.account;
       const account         = (accountFromCol || accountFromArgs || '').toString();
-
-      // name: explicit, else args.processor/klass, else account
-      const nameExplicit = getField(r, 'job name','Job name','Job Name','name','File Name');
-      const nameDerived  = nameExplicit || argsObj.processor || argsObj.klass || account || '(unnamed)';
 
       // description (optional)
       const desc = getField(r, 'job description','description');
@@ -457,10 +458,11 @@
     }
   }
 
-  // ============ TIME FILTER STATE ============
+  // ============ FILTER STATE ============
   let currentDayJobs = [];
   let timeFilterStart = 0;     // 0-23.99 hours
   let timeFilterEnd = 23.99;   // 0-23.99 hours
+  let activeFilters = [];      // Array of {type: 'account'|'job'|'args', value: 'search term'}
 
   function setupTimeFilter() {
     const container = document.getElementById('time-scale-container');
@@ -542,17 +544,141 @@
     updateUI();
   }
 
+  function setupSearchFilters() {
+    const filterTypeSelect = document.getElementById('filter-type-select');
+    const searchInput = document.getElementById('filter-search-input');
+    const addBtn = document.getElementById('add-filter-btn');
+    const activeFiltersContainer = document.getElementById('active-filters');
+
+    // Reset
+    filterTypeSelect.value = '';
+    searchInput.value = '';
+    searchInput.disabled = true;
+    addBtn.disabled = true;
+
+    // Enable search input when filter type is selected
+    filterTypeSelect.addEventListener('change', (e) => {
+      if (e.target.value) {
+        searchInput.disabled = false;
+        searchInput.focus();
+        searchInput.placeholder = `Search by ${e.target.value}...`;
+      } else {
+        searchInput.disabled = true;
+        searchInput.value = '';
+        addBtn.disabled = true;
+      }
+    });
+
+    // Enable add button when search input has value
+    searchInput.addEventListener('input', (e) => {
+      addBtn.disabled = !e.target.value.trim() || !filterTypeSelect.value;
+    });
+
+    // Handle Enter key in search input
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !addBtn.disabled) {
+        addFilter();
+      }
+    });
+
+    // Add filter button
+    addBtn.addEventListener('click', addFilter);
+
+    function addFilter() {
+      const type = filterTypeSelect.value;
+      const value = searchInput.value.trim();
+      
+      if (!type || !value) return;
+
+      // Add to active filters
+      activeFilters.push({ type, value });
+      
+      // Reset inputs
+      filterTypeSelect.value = '';
+      searchInput.value = '';
+      searchInput.disabled = true;
+      addBtn.disabled = true;
+      
+      // Render filter tags and update display
+      renderActiveFilters();
+      filterAndDisplayJobs();
+    }
+
+    function renderActiveFilters() {
+      activeFiltersContainer.innerHTML = '';
+      
+      if (activeFilters.length === 0) {
+        activeFiltersContainer.innerHTML = '<span class="text-xs text-gray-400">No active filters</span>';
+        return;
+      }
+
+      activeFilters.forEach((filter, index) => {
+        const tag = document.createElement('div');
+        tag.className = 'inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 text-blue-800 text-xs rounded-full';
+        tag.innerHTML = `
+          <span class="font-medium">${filter.type}:</span>
+          <span>${filter.value}</span>
+          <button class="ml-1 hover:text-blue-900" data-index="${index}">
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+            </svg>
+          </button>
+        `;
+        
+        // Remove filter when X is clicked
+        tag.querySelector('button').addEventListener('click', () => {
+          activeFilters.splice(index, 1);
+          renderActiveFilters();
+          filterAndDisplayJobs();
+        });
+        
+        activeFiltersContainer.appendChild(tag);
+      });
+    }
+
+    // Initial render
+    renderActiveFilters();
+  }
+
   function filterAndDisplayJobs() {
     const jobList = document.getElementById('job-list');
     const noJobsMessage = document.getElementById('no-jobs-message');
+    const filterStats = document.getElementById('filter-stats');
     jobList.innerHTML = '';
 
-    // Filter jobs by time range
+    // Apply all filters: time + active search filters
     const filteredJobs = currentDayJobs.filter(job => {
+      // Time filter
       const dt = luxon.DateTime.fromJSDate(job.scheduledTime, { zone: 'Asia/Jerusalem' });
       const hour = dt.hour + dt.minute / 60;
-      return hour >= timeFilterStart && hour <= timeFilterEnd;
+      if (hour < timeFilterStart || hour > timeFilterEnd) return false;
+
+      // Apply all active filters (AND logic)
+      for (const filter of activeFilters) {
+        const searchValue = filter.value.toLowerCase();
+        
+        switch (filter.type) {
+          case 'account':
+            if (!job.account.toLowerCase().includes(searchValue)) return false;
+            break;
+          case 'job':
+            if (!job['job name'].toLowerCase().includes(searchValue)) return false;
+            break;
+          case 'args':
+            if (!job.args.toLowerCase().includes(searchValue)) return false;
+            break;
+        }
+      }
+
+      return true;
     });
+
+    // Update filter stats
+    if (activeFilters.length > 0) {
+      filterStats.textContent = `Showing ${filteredJobs.length} of ${currentDayJobs.length} jobs`;
+    } else {
+      filterStats.textContent = `Showing ${filteredJobs.length} jobs`;
+    }
 
     if (filteredJobs.length === 0) {
       noJobsMessage.classList.remove('hidden');
@@ -589,13 +715,11 @@
           <div class="flex flex-col items-start">
             <div class="text-sm font-bold text-gray-900">${scheduledTimeIL}</div>
             <div class="text-[11px] text-gray-500">Israel Time</div>
-            <div class="mt-3 w-2 h-10 rounded-full ${colorClass}"></div>
           </div>
 
           <div class="min-w-0">
-            <h4 class="text-lg font-semibold text-gray-800 break-words">${job['job name'] || '(unnamed)'}</h4>
-            <div class="mt-1 text-sm text-gray-700 space-y-1">
-              <div><span class="font-medium">Class:</span> ${job.class || '-'}</div>
+            <div class="text-sm text-gray-700 space-y-1">
+              <div><span class="font-medium">Job:</span> ${job['job name'] || '-'}</div>
               <div><span class="font-medium">Account:</span> ${job.account || '-'}</div>
               <div><span class="font-medium">Cron:</span> <code class="text-xs bg-white px-1 py-0.5 rounded border">${job.cron || '-'}</code></div>
               <div><span class="font-medium">Timezone:</span> ${job.timezone || 'Asia/Jerusalem'}</div>
@@ -628,10 +752,11 @@
     selectedJobs.clear();
     updateCopyButton();
 
-    // Store jobs and reset time filter
+    // Reset all filters
     currentDayJobs = jobsOnThisDay;
     timeFilterStart = 0;
     timeFilterEnd = 23.99;
+    activeFilters = [];
 
     const modalDateString = selectedDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     document.getElementById('modal-title').textContent =
@@ -648,8 +773,9 @@
     }
     noJobsMessage.classList.add('hidden');
 
-    // Setup time filter and display jobs
+    // Setup time filter and search filters
     setupTimeFilter();
+    setupSearchFilters();
     filterAndDisplayJobs();
 
     const modal = document.getElementById('job-modal');

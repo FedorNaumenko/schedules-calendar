@@ -103,6 +103,31 @@
         </div>
       </div>
       
+      <!-- Search Filters -->
+      <div class="py-4 border-b border-gray-100">
+        <div class="flex items-center gap-3 mb-2">
+          <select id="filter-type-select" class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <option value="">Select filter...</option>
+            <option value="account">Account</option>
+            <option value="job">Job</option>
+            <option value="args">Args</option>
+          </select>
+          <input 
+            type="text" 
+            id="filter-search-input" 
+            placeholder="Enter search term..."
+            disabled
+            class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+          />
+          <button id="add-filter-btn" disabled class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed">Add</button>
+        </div>
+        
+        <!-- Active Filters -->
+        <div id="active-filters" class="flex flex-wrap gap-2 min-h-[28px]"></div>
+        
+        <div id="filter-stats" class="mt-2 text-xs text-gray-500"></div>
+      </div>
+      
       <div id="job-list" class="mt-4 space-y-3 overflow-y-auto"></div>
       <div id="no-jobs-message" class="mt-4 text-center text-gray-500 hidden">No jobs scheduled for this day.</div>
     </div>
